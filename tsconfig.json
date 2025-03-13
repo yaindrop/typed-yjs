@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "skipLibCheck": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "lib": ["esnext"],
+    "baseUrl": "./",
+    "declaration": true
+  },
+  "exclude": ["node_modules"],
+  "include": ["src"]
+}
