@@ -3,12 +3,15 @@ import * as Y from 'yjs'
 
 import { ExtendsKeyof, OptionalKeyof, Overwrite } from './utils'
 
+// a helper that makes the type inference work for deeply nested objects
+declare const __type: unique symbol
+
 // MARK: YType
 // Only support YText, YArray, YMap for now
-export type YType = YText | YArray<any> | YMap<any>
+export type YType = YText | YArray<any> | YMap<any> | YDoc<any>
 
-// YArray / YMap values can be either YType or Json
-export type YValue = YType | Json
+// YArray / YMap values can be a YType, a Json, or a sub-YDoc
+export type YValue = YType | YDoc<any> | Json
 
 // MARK: json
 type Json = JsonPrimitive | JsonArray | JsonObject
@@ -17,19 +20,17 @@ type JsonArray = Json[]
 type JsonObject = Partial<{ [key: string]: Json }>
 
 export type JsonOf<V extends YValue> =
-  V extends YMap<infer R>
+  V extends YDoc<infer R>
     ? { [K in keyof R]: JsonOf<R[K]> }
-    : V extends YArray<infer TValue>
-      ? JsonOf<TValue>[]
-      : V extends YText
-        ? string
-        : V extends Json
-          ? V
-          : never
-
-export type JsonOfYDoc<R extends YDocRecord> = {
-  [K in keyof R]: JsonOf<R[K]>
-}
+    : V extends YMap<infer R>
+      ? { [K in keyof R]: JsonOf<R[K]> }
+      : V extends YArray<infer TValue>
+        ? JsonOf<TValue>[]
+        : V extends YText
+          ? string
+          : V extends Json
+            ? V
+            : never
 
 // MARK: YText
 export type YText = Y.Text
@@ -42,6 +43,8 @@ export namespace YText {
 
 // MARK: YArray
 type YArrayType<V extends YValue> = {
+  [__type]: YArray<V>
+
   get(index: number): V | undefined
   toJSON(): JsonOf<V>[]
 }
@@ -58,19 +61,24 @@ export namespace YArray {
 type YMapRecord = Record<string, YValue>
 
 type YMapEntry<R extends YMapRecord> = {
-  [key in keyof R]-?: [key, Required<R>[key]]
+  [K in keyof R]-?: [K, Required<R>[K]]
 }[keyof R]
 
 type YMapType<R extends YMapRecord> = {
+  [__type]: YMap<R>
+
   clone(): YMap<R>
+
   keys(): IterableIterator<keyof R>
   values(): IterableIterator<R[keyof R]>
   entries(): IterableIterator<YMapEntry<R>>
   forEach(fn: (key: keyof R, value: R[keyof R], self: YMap<R>) => void): void
-  delete(key: OptionalKeyof<R>): void
+
+  has(key: keyof R): boolean
   set<K extends keyof R, V extends R[K]>(key: K, value: V): V
   get<K extends keyof R>(key: K): R[K]
-  has(key: keyof R): boolean
+  delete(key: OptionalKeyof<R>): void
+
   toJSON(): {
     [K in keyof R]: JsonOf<R[K]>
   }
@@ -100,6 +108,8 @@ type YTypeConstructor<T extends YType> = new () => T extends YMap<any>
     : YText
 
 type YDocType<R extends YDocRecord> = {
+  [__type]: YDoc<R>
+
   get<K extends keyof R, TValue extends R[K]>(name: K, TypeConstructor: YTypeConstructor<TValue>): R[K]
   get<K extends keyof R>(name: K): R[K] | undefined
 
